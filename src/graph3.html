@@ -1,0 +1,139 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Faces detector monitor</title>
+    <link href="https://visjs.github.io/vis-timeline/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://visjs.github.io/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    </head>
+<body>
+<h2>Faces detector monitor</h2>
+<br />
+
+<button onclick="restart_service()">Restart service</button>
+
+<!-- TO INSERT CODE 1 -->
+
+<br />
+<div id="test"></div>
+
+<script type="text/javascript">
+// TO INSERT CODE 2
+
+    var cur_url = window.location.href;
+    let c_url = new URL(cur_url);
+    var host = c_url.hostname
+    var port = c_url.port
+    var UP_INT = 1000;
+
+    function restart_service() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'http://' + host + ':' + port + '/restart', true);
+        xhr.onerror = function() {
+            //alert("status: " + xhr.status + "  response:" + xhr.response + "  length:" + xhr.response.length);
+        };
+        xhr.onload = function() {
+            var now1 = new Date();
+            if (xhr.status != 200) {
+                //alert( xhr.status + ': ' + xhr.statusText );
+            }
+        }
+        xhr.send();
+    };
+
+    function onload_func() {
+        //document.title = ' - ';
+    };
+
+    function update_elements(data) {
+        /*const left_elements_array = ['symbol_left', 'account_left'];
+        for (const elem of left_elements_array) {
+            if (data[elem] === undefined) {}
+            else {
+                if (tBody = document.querySelector('#' + elem)) {
+                    tBody.innerHTML = data[elem]; 
+                }
+            }
+        }*/
+
+        //if (tBody = document.querySelector('#test')) {
+        //    tBody.innerHTML = "sdfsdfgsdf";
+        //tBody.innerHTML = data["type"];
+
+        tBody = document.querySelector('#test')
+        var ii = 0;
+        for (const labs of data["labels"]) {
+            var jj = 0
+            for (const lab of labs) {
+                labelBody = document.querySelector( "#label_" + ii.toString() + "_" + jj.toString() )
+                labelBody.innerHTML = lab.toFixed(2);
+                jj = jj + 1;
+            }
+            ii = ii + 1;
+        }
+
+        var i = 0;
+        for (const itm of data["items"]) {
+            //items_ = items_.concat([{x: itm[0], y: itm[1]}]);
+            if (data["type"] == "full") {
+                var dct = {x: itm[0][0], y: itm[0][1], group: itm[0][2]};
+                items[i] = [dct];
+                for (const it of itm) {
+                    var dct = {x: it[0], y: it[1], group: it[2]};
+                    items[i] = items[i].concat([dct]);
+                    //tBody.innerHTML = Object.prototype.toString.call(items[i][10]);//["x"];//itm[0][0];
+                }
+            }
+            if (data["type"] == "add") {
+                for (const it of itm) {
+                    var dct = {x: it[0], y: it[1], group: it[2]};
+                    items[i] = items[i].concat([dct]);
+                }
+            }
+            
+            graph2d_s[i].setItems(items[i])
+            graph2d_s[i].setOptions({"start": data["start"]});
+            graph2d_s[i].setOptions({"end": data["end"]});
+            i = i + 1;
+        }
+        //tBody = document.querySelector('#test')
+        tBody.innerHTML = data["end"];
+
+        //graph2d_2.setItems(items_)
+        //title = {text: "Title (" + axis + " axis)"};
+        //graph2d_2.setOptions({dataAxis: {left: {title: title}}});
+        //graph2d_2.setOptions({"start": data["start"]});
+        //graph2d_2.setOptions({"end": data["end"]});
+        //tBody.innerHTML = data["end"];
+        //}
+    };
+
+
+    function update_all() {
+        var now0 = new Date();
+        setTimeout(update_all, UP_INT);
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'http://' + host + ':' + port + '/json', true);
+        xhr.onerror = function() {
+            //alert("status: " + xhr.status + "  response:" + xhr.response + "  length:" + xhr.response.length);
+        };
+        xhr.onload = function() {
+            //tBody = document.querySelector('#test')
+            //tBody.innerHTML = "sdfsdfgsdf";
+            var now1 = new Date();
+            if (xhr.status != 200) {
+                //alert( xhr.status + ': ' + xhr.statusText ); // 404: No
+            } else {
+                var data = JSON.parse(xhr.responseText)
+                update_elements(data);
+            }
+        }
+        xhr.send();
+    };
+
+
+    onload_func();
+    update_all();
+
+</script>
+</body>
+</html>
