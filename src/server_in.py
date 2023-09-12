@@ -25,6 +25,7 @@ from kombu import Connection, Exchange, Queue, Consumer
 
 from logger import log_in_file
 from base_class import BaseClass
+from load_config import load_config
 from runner_embed import RunnerEmbed
 from constants import RABBIT_IN_ADDR, RABBIT_IN_QNAME, RABBIT_IN_EXCH, RABBIT_IN_RKEY
 
@@ -36,6 +37,8 @@ class ServerIn(BaseClass):
     def __init__(self, cnf_name):
         self.req_id = 1
         self.runner_embed = RunnerEmbed(cnf_name)
+        CONF_DCT = load_config(cnf_name)
+        self.TEST_QUEUE = CONF_DCT['TEST_QUEUE']
 
     def handle_rabbit_message(self, body, message=None):
         verse = body
@@ -63,7 +66,7 @@ class ServerIn(BaseClass):
 
 
 def get_rabbit_messages(server_in):
-    rabbit_url = "amqp://guest2:guest2@localhost:5672/"
+    rabbit_url = f"amqp://guest2:guest2@{server_in.TEST_QUEUE}:5672/"
     conn = Connection(rabbit_url)
     exchange = Exchange("test_exchange", type="direct")
     queue = Queue(name="test_queue", exchange=exchange, routing_key="BOB")

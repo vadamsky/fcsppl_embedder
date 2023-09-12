@@ -35,8 +35,8 @@ from constants import SHM_PRF
 #from shm_wrapper_t import ShmWrapperT
 
 SENTINEL = -1
-pipe_in_name = './pipes/pipe_embedder_main_'
-pipe_out_name = './pipes/pipe_main_embedder_'
+pipe_in_name = '/cache/pipes/pipe_embedder_main_'
+pipe_out_name = '/cache/pipes/pipe_main_embedder_'
 
 
 ################################################################################
@@ -68,12 +68,10 @@ class RunnerEmbed(PipesWorker):
         global pipe_in_name, pipe_out_name
         embedder_id = 0
         CONF_DCT = load_config(json_name)
-        self.EMBEDDER_HOST = CONF_DCT['EMBEDDER_HOST']
         self.EMBEDDER_BATCH = CONF_DCT['EMBEDDER_BATCH']
-        self.QUEUES_DIR = CONF_DCT['QUEUES_DIR']
         self.IMAGE_SIZE = CONF_DCT['IMAGE_SIZE']
-        pipe_in_name  = pipe_in_name.replace('./pipes', self.QUEUES_DIR+'pipes')
-        pipe_out_name = pipe_out_name.replace('./pipes', self.QUEUES_DIR+'pipes')
+        #self.TEST_QUEUE = CONF_DCT['TEST_QUEUE']
+        self.BASE_QUEUE = CONF_DCT['BASE_QUEUE']
         PipesWorker.__init__(self, pipe_in_name + '%d' % embedder_id,
                                    pipe_out_name + '%d' % embedder_id,
                                    blocked=False)
@@ -90,7 +88,7 @@ class RunnerEmbed(PipesWorker):
 
         ####self.zmq_srv = ShmWrapperT('runner_embed', 'client_out', 1024*1024)
         ####self.zmq_embs = []
-        rabbit_url = "amqp://guest2:guest2@95.216.44.199:5672/"
+        rabbit_url = f"amqp://guest2:guest2@{self.BASE_QUEUE}:5672/"
         self.conn = Connection(rabbit_url)
         self.channel = self.conn.channel()
         self.exchange = Exchange("base_exchange", type="direct")

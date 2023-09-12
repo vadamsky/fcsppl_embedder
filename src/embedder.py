@@ -26,8 +26,8 @@ from pipesworker import PipesWorker
 from load_config import load_config
 from conversions import int_to_bytes, int_from_bytes
 
-pipe_out_name = './pipes/pipe_embedder_main_'
-pipe_in_name = './pipes/pipe_main_embedder_'
+pipe_out_name = '/cache/pipes/pipe_embedder_main_'
+pipe_in_name = '/cache/pipes/pipe_main_embedder_'
 
 
 ################################################################################
@@ -59,9 +59,6 @@ class Embedder(PipesWorker):
         global pipe_in_name, pipe_out_name
         CONF_DCT = load_config(json_name)
         self.size = CONF_DCT['IMAGE_SIZE']
-        self.QUEUES_DIR = CONF_DCT['QUEUES_DIR']
-        pipe_in_name  = pipe_in_name.replace('./pipes', self.QUEUES_DIR+'pipes')
-        pipe_out_name = pipe_out_name.replace('./pipes', self.QUEUES_DIR+'pipes')
         PipesWorker.__init__(self, pipe_in_name + '%d' % number_of_embedder,
                                    pipe_out_name + '%d' % number_of_embedder,
                                    blocked=False)
