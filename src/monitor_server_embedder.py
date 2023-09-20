@@ -5,6 +5,7 @@
 
 import os
 import sys
+import imp
 import time
 import json
 from datetime import datetime
@@ -23,10 +24,17 @@ from threading import Thread, Lock, get_ident
 import threading
 #import shared_memory
 #from named_atomic_lock import NamedAtomicLock
-from constants import SHM_PRF
 
-from load_config import load_config
-from monitor_config import lab_titles, grph_titles, grph_names, grph_heights, grph_groups, grph_names, grph_axess, labels_zero, items_zero
+#from constants import SHM_PRF
+#from load_config import load_config
+new_dir, old_dir = __file__[:__file__.rfind('/')], os.getcwd()
+os.chdir(new_dir)
+load_config    = imp.load_source(new_dir, 'load_config.py').load_config
+SHM_PRF        = imp.load_source(new_dir, 'constants.py').SHM_PRF
+mc             = imp.load_source(new_dir, 'monitor_config.py')
+os.chdir(old_dir)
+lab_titles, grph_titles, grph_names, grph_heights, grph_groups, grph_names, grph_axess, labels_zero, items_zero = \
+    mc.lab_titles, mc.grph_titles, mc.grph_names, mc.grph_heights, mc.grph_groups, mc.grph_names, mc.grph_axess, mc.labels_zero, mc.items_zero
 #from monitor_zmq import Monitor_Zmq
 
 
@@ -343,7 +351,7 @@ def get_proc_strs_lst(cnf_file):
     proc_lst.append('python3 src/server_in.py %s')
 
 
-    proc_strs_lst = [s % sys.argv[1] for s in proc_lst]
+    proc_strs_lst = [s % cnf_file for s in proc_lst]
     return proc_strs_lst
 
 
