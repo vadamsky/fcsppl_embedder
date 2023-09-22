@@ -27,7 +27,8 @@ import threading
 
 #from constants import SHM_PRF
 #from load_config import load_config
-new_dir, old_dir = __file__[:__file__.rfind('/')], os.getcwd()
+#new_dir, old_dir = __file__[:__file__.rfind('/')], os.getcwd()
+new_dir, old_dir = './' if __file__.rfind('/')==-1 else __file__[:__file__.rfind('/')], os.getcwd()
 os.chdir(new_dir)
 load_config    = imp.load_source(new_dir, 'load_config.py').load_config
 SHM_PRF        = imp.load_source(new_dir, 'constants.py').SHM_PRF
