@@ -87,7 +87,8 @@ class Embedder(PipesWorker):
                 continue #break
             print('Embedder input was readed')
 
-            (images, req_id) = verse # list of numpy arrays
+            (images, req_id, tms_lst) = verse # list of numpy arrays
+            tms_lst[1] = time.time()
 
             imgs = np.zeros([len(images), 160, 160, 3])
             embeddings = []
@@ -99,7 +100,8 @@ class Embedder(PipesWorker):
             embeddings = self.model.predict([imgs, imgs])
             embs = [emb for emb in embeddings]
 
-            rt = self.write_in_pipeout_strct(embs)
+            tms_lst[2] = time.time()
+            rt = self.write_in_pipeout_strct((embs, tms_lst))
             if rt is None: # need stop process
                 break
             print('Embedder ret was writed')
