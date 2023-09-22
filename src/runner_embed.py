@@ -104,12 +104,17 @@ class RunnerEmbed(PipesWorker):
         self.rect_kps = np.zeros((self.EMBEDDER_BATCH, 13), dtype=np.float64) # rect4 + keypoint6 + agegender3
         #
         embs = self.warm_up()
+        self.flag = 1
+        os.utime('./send_ok_check', (time.time(), time.time()))
 
     def get_embs(self, np_imgs, id_=0):
-        if self.write_in_pipeout_strct((np_imgs, id_)) is None:
+        tm_lst = [time.time(), None, None, None]
+        if self.write_in_pipeout_strct((np_imgs, id_, tm_lst)) is None:
             print('runner_embed: error with write_in_pipeout_strct: None returned')
             return None
-        embs = self.read_from_pipein_strct()
+        (embs, tm_lst) = self.read_from_pipein_strct()
+        tm_lst[3] = time.time()
+        log_in_file('runner_embed_tms.csv', f'begin={tm_lst[0]} end={tm_lst[1]} emb_tm={tm_lst[2]-tm_lst[1]} trans_tm={tm_lst[3]-tm_lst[0]-tm_lst[2]+tm_lst[1]}')
         return embs
 
     def warm_up(self):
@@ -132,11 +137,11 @@ class RunnerEmbed(PipesWorker):
     def zmq_callback_func(self, dt):
         (identifier, tm, msg_type, data) = dt
         if data:
-            (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, dict_stat) = data
-            log_in_file('runner_embed.csv', f'zmq_callback_func: req_id={req_id}, client_id={client_id}  self.imgs_dt_len={self.imgs_dt_len}')
+            (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, message_to_ack, dict_stat) = data
+            log_in_file('runner_embed.csv', f'zmq_callback_func: req_id={req_id}, img_id={img_id}, client_id={client_id}  self.imgs_dt_len={self.imgs_dt_len}')
             print('RunnerEmbed: zmq_callback_func:  self.imgs_dt_len=', self.imgs_dt_len, '  req_id, client_id, img_id:', req_id, client_id, img_id, '  len(frames):', len(frames))
             self.imgs_dt_lock.acquire()
-            self.imgs_dt_lst.append((req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, dict_stat))
+            self.imgs_dt_lst.append((req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, message_to_ack, dict_stat))
             self.imgs_dt_len += 1
             ####self.shm_a.buf[4*8:4*8+8] = self.imgs_dt_len.to_bytes(8, 'big')
             self.imgs_dt_lock.release()
@@ -151,8 +156,10 @@ class RunnerEmbed(PipesWorker):
             self.producer.publish(post_body)
         except Exception as e:
             log_in_file('runner_embed.csv', f'send_data_to_base: Error:  e={e}')
+            return False
         else:
             log_in_file('runner_embed.csv', f'send_data_to_base: ok')
+        return True
 
     def run(self):
         # Main thread
@@ -166,13 +173,14 @@ class RunnerEmbed(PipesWorker):
             #if self.imgs_dt_len:
             while self.imgs_dt_len:
                 self.imgs_dt_lock.acquire()
-                (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, dict_stat) = self.imgs_dt_lst[0]
+                (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, message_to_ack, dict_stat) = self.imgs_dt_lst[0]
                 dict_stat['emb_load_from_detected_tm'] = time.time()
                 dict_stat['detected_queue_len'] = self.imgs_dt_len
                 self.imgs_dt_lst = self.imgs_dt_lst[1:]
                 self.imgs_dt_len -= 1
                 self.imgs_dt_lock.release()
 
+                """
                 #if status == 'OK':
                 #print('len(self.imgs), len(faces_imgs), self.EMBEDDER_BATCH:', len(self.imgs), len(faces_imgs), self.EMBEDDER_BATCH)
                 if len(self.imgs) + len(faces_imgs) <= self.EMBEDDER_BATCH or len(self.imgs) <= (self.EMBEDDER_BATCH / 2):
@@ -188,6 +196,24 @@ class RunnerEmbed(PipesWorker):
                     statuses.append(status)
                 else:
                     break  # while self.imgs_dt_len:
+                """
+                for img in faces_imgs:
+                    self.imgs.append(img)
+                loads.append((req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, message_to_ack, dict_stat))
+                statuses.append(status)
+                #    else:
+                #        shift = self.EMBEDDER_BATCH - len(self.imgs)
+                #        for img in faces_imgs[:shift]:
+                #            self.imgs.append(img)
+                #        loads.append((req_id, client_id, img_id, faces_imgs[:shift], frames[:shift], faces_keypoints[:shift], dict_stat))
+                #    statuses.append(status)
+                #else:
+                #    self.imgs_dt_lock.release()
+                #    time.sleep(0.05)
+                #    continue  # while self.imgs_dt_len:
+                if len(self.imgs) >= self.EMBEDDER_BATCH:
+                    break
+
 
             embs = None
             if len(self.imgs) == 0:
@@ -208,10 +234,11 @@ class RunnerEmbed(PipesWorker):
                     log_in_file('runner_embed.csv', f'run: embs was calculated: len(embs)={len(embs)}')
                     print(f'embs was calculated: len(embs)={len(embs)}')
 
+            print(f'len(loads)={len(loads)}')
             # save
             shift = 0
             for load, status in zip(loads, statuses):
-                (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, dict_stat) = load
+                (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, message_to_ack, dict_stat) = load
                 embs_ = embs[shift:shift+len(faces_imgs)]
                 ret_dicts = []
                 for face_img, frame, keypoints, emb in zip(faces_imgs, frames, faces_keypoints, embs_):
@@ -230,11 +257,19 @@ class RunnerEmbed(PipesWorker):
                 dict_stat['emb_begin_save_in_resulted_tm'] = time.time()
                 dict_stat['emb_save_in_resulted_tm'] = time.time()
 
-                self.send_data_to_base( (req_id, client_id, img_id, ret_dicts, status, dict_stat) )
+                #self.send_data_to_base( (req_id, client_id, img_id, ret_dicts, status, dict_stat) )
+                self.flag += 1
+                print(f'self.flag: {self.flag}')
+                send_ok = self.send_data_to_base( (req_id, client_id, img_id, ret_dicts, status, dict_stat) )
+                if send_ok:
+                    #self.zmq_mon.send({'act': 'ok'}, msg_type='run')
+                    os.utime('./send_ok_check', (time.time(), time.time()))
                 #self.zmq_srv.send((req_id, client_id, img_id, ret_dicts, status, dict_stat), msg_type='send_embedded')
                 print('RunnerEmbed: zmq_srv sended: req_id, client_id, img_id=', req_id, client_id, img_id, '  len(ret_dicts):', len(ret_dicts))
 
                 shift += len(faces_imgs)
+                if not (message_to_ack is None):
+                    message_to_ack.ack()
 
         logger.error('Embedder runner stopped')
         print('STOP RunnerEmbed...')

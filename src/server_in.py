@@ -44,21 +44,23 @@ class ServerIn(BaseClass):
         verse = body
         log_in_file('server_in.csv', f'handle_rabbit_message: start')
 
-        (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, dict_stat) = pickle.loads(bytes(verse))
-        log_in_file('server_in.csv', f'handle_rabbit_message: req_id={req_id}, client_id={client_id}')
-        print('QueueIn:', img_id)
-        #
         try:
+            (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, dict_stat) = pickle.loads(bytes(verse))
+            log_in_file('server_in.csv', f'handle_rabbit_message: req_id={req_id}, img_id={img_id}, client_id={client_id}')
+            print('QueueIn:', img_id)
+            #
             dict_stat['emb_load_from_saved_tm'] = time.time()
-            data = (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, dict_stat)
+            data = (req_id, client_id, img_id, faces_imgs, frames, faces_keypoints, status, message, dict_stat)
             identifier, tm, msg_type = 'server', time.time(), 'send_detected'
             dt = (identifier, tm, msg_type, data)
             self.runner_embed.zmq_callback_func(dt)
         except Exception as e:
-            log_in_file('server_in.csv', f'handle_rabbit_message: Error: req_id={req_id}, client_id={client_id}  e={e}')
+            log_in_file('server_in.csv', f'handle_rabbit_message: Error: req_id={req_id}, img_id={img_id}, client_id={client_id}  e={e}')
         #
-        if not (message is None):
-            message.ack()
+        if self.runner_embed.imgs_dt_len > 2 * self.runner_embed.EMBEDDER_BATCH:
+            time.sleep( self.runner_embed.imgs_dt_len / 2 / self.runner_embed.EMBEDDER_BATCH )
+        #if not (message is None):
+        #    message.ack()
 
     def run(self):
         self.runner_embed.run()
